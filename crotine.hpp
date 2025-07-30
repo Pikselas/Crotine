@@ -15,9 +15,9 @@ namespace Crotine
             class Promise
             {
                 private:
-                    std::future<T> _future;
                     std::optional<T> _value;
                     std::promise<T> _promise;
+                    std::future<T> _future;
                 private:
                     std::forward_list<std::function<void(const T&)>> _continuations;
                 public:
