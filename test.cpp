@@ -1,40 +1,42 @@
+#include <string>
 #include <iostream>
 #include "crotine.hpp"
 
 Crotine::Task<int> produceValue()
 {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     co_return 42;
 }
 
 Crotine::Task<std::string> produceStrValue()
 {
     std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "Producing string value...\n";
     co_return "Hello, Crotine!";
 }
 
-Crotine::Task<int> runTasks()
+Crotine::Task<std::string> runTasks()
 {
     auto intTask = produceValue();
     auto strTask = produceStrValue();
 
-    std::cout << "Tasks started...\n";
-
     intTask.execute_async();
     strTask.execute_async();
 
-    int value = co_await intTask;
-    std::string strValue = co_await strTask;
-    
-    std::cout << "Produced int: " << value << "\n";
-    std::cout << "Produced string: " << strValue << "\n";
+    auto data_1 = co_await strTask;
+    std::cout << "String Task completed with value: " << data_1 << "\n";
+    auto data_2 = std::to_string(co_await intTask);
+    std::cout << "Integer Task completed with value: " << data_2 << "\n";
 
-    co_return 0;
+    co_return data_2 + " and " + data_1;
 }
 
 int main()
 {
-    std::cout << runTasks().getPromise().getWaitedValue() << "\n";
+    std::cout << "Started Task.\n";
+    auto tsk = runTasks();
+    tsk.execute_async();
+    std::cout << tsk.getPromise().getWaitedValue() << "\n";
     std::cout << "All tasks completed successfully.\n";
     return 0;
 }

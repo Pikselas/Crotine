@@ -100,8 +100,7 @@ void Crotine::Task<T>::Promise::unhandled_exception()
 }
 
 template <typename T>
-Crotine::Task<T>::Promise::Promise() : _future(_promise.get_future())
-{}
+Crotine::Task<T>::Promise::Promise() : _future(_promise.get_future()) {}
 
 template <typename T>
 bool Crotine::Task<T>::Promise::isResolved() const noexcept
@@ -138,15 +137,14 @@ void Crotine::Task<T>::Promise::chainOnResolved(std::function<void(const T&)> co
 }
 
 template <typename T>
-Crotine::Task<T>::Task(Handle handle) : _handle(handle)
-{}
+Crotine::Task<T>::Task(Handle handle) : _handle(handle) {}
 
 template <typename T>
 Crotine::Task<T>::~Task()
 {
     if (_handle)
     {
-        _handle.destroy();
+        // _handle.destroy();
     }
 }
 
@@ -161,8 +159,8 @@ void Crotine::Task<T>::execute_async()
 {
     if (_handle)
     {
-        std::thread([this]() {
-            std::cout << "Executing task asynchronously...\n";
+        std::thread([this]() 
+        {
             _handle.resume();
         }).detach();
     }
