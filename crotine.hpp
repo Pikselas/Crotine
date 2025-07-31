@@ -23,7 +23,7 @@ namespace Crotine
                 public:
                     auto get_return_object() -> Task<T>;
                     auto initial_suspend() -> std::suspend_always;
-                    auto final_suspend() noexcept -> std::suspend_never;
+                    auto final_suspend() noexcept -> std::suspend_always;
                     void return_value(const T& value);
                     void unhandled_exception();
                 public:
@@ -77,7 +77,7 @@ std::suspend_always Crotine::Task<T>::Promise::initial_suspend()
 }
 
 template <typename T>
-std::suspend_never Crotine::Task<T>::Promise::final_suspend() noexcept
+std::suspend_always Crotine::Task<T>::Promise::final_suspend() noexcept
 {
     return {};
 }
@@ -144,7 +144,7 @@ Crotine::Task<T>::~Task()
 {
     if (_handle)
     {
-        // _handle.destroy();
+        _handle.destroy();
     }
 }
 
