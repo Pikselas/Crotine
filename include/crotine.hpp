@@ -6,13 +6,15 @@
 #include <coroutine>
 #include <forward_list>
 
+#include "PromiseBase.hpp"
+
 namespace Crotine
 {
     template <typename T>
     class Task 
     {
         public:
-            class Promise
+            class Promise : public PromiseBase
             {
                 private:
                     std::optional<T> _value;
@@ -57,6 +59,10 @@ namespace Crotine
             ~Task();
         public:
             void execute_async();
+            void set_execution_ctx(Executor& ctx)
+            {
+                getPromise().set_execution_ctx(ctx);
+            }
         public:
             auto getPromise() -> Promise&;
         public:
@@ -159,10 +165,10 @@ void Crotine::Task<T>::execute_async()
 {
     if (_handle)
     {
-        std::thread([this]() 
+        getPromise().get_execution_ctx().execute([this]()
         {
             _handle.resume();
-        }).detach();
+        });
     }
 }
 
