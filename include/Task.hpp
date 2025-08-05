@@ -198,8 +198,7 @@ void Crotine::Task<T>::Awaiter::await_suspend(std::coroutine_handle<> handle) co
         _promise.chainOnResolved([handle]() 
         {
             auto typed_handle = std::coroutine_handle<PromiseBase>::from_address(handle.address());
-            auto& base = static_cast<PromiseBase&>(typed_handle.promise());
-            base.get_execution_ctx().execute([handle]()
+            typed_handle.promise().get_execution_ctx().execute([handle]()
             {
                 handle.resume();
             });

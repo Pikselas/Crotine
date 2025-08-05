@@ -3,6 +3,7 @@
 
 #include "../include/Task.hpp"
 #include "../include/Xecutor.hpp"
+#include "../include/utils/Context.hpp"
 
 Crotine::Task<int> computeSquare(int num)
 {
@@ -22,7 +23,7 @@ Crotine::Task<std::string> mergeResults()
     auto cubeTask = computeCube(3);
 
     std::cout << "Tasks started, waiting for results...\n";
-    auto& exec_ctx = co_await Crotine::get_Execution_Context<Crotine::Task<std::string>::Promise>{};
+    auto& exec_ctx = co_await Crotine::get_Execution_Context{};
     std::cout << "Execution ctx retrieved for merging results.\n";
 
     squareTask.set_execution_ctx(exec_ctx);
