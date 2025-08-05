@@ -8,7 +8,7 @@ namespace Crotine
     {
         public:
             virtual ~Executor() = default;
-            virtual void execute(std::function<void()>&& func)
+            virtual void execute(std::function<void()> func)
             {
                 std::thread(std::move(func)).detach();
             }

@@ -56,13 +56,15 @@ namespace Crotine
             Handle _handle;
         public:
             Task(Handle handle);
+            Task(const Task&) = delete;
+            Task(Task&& other) noexcept = default;
             ~Task();
         public:
+            Task& operator=(const Task&) = delete;
+            Task& operator=(Task&& other) noexcept = default;
+        public:
             void execute_async();
-            void set_execution_ctx(Executor& ctx)
-            {
-                getPromise().set_execution_ctx(ctx);
-            }
+            void set_execution_ctx(Executor& ctx);
         public:
             auto getPromise() -> Promise&;
         public:
@@ -173,6 +175,12 @@ void Crotine::Task<T>::execute_async()
 }
 
 template <typename T>
+void Crotine::Task<T>::set_execution_ctx(Executor& ctx)
+{
+    getPromise().set_execution_ctx(ctx);
+}
+
+template <typename T>
 Crotine::Task<T>::Awaiter::Awaiter(Promise& promise) : _promise(promise)
 {}
 
@@ -189,7 +197,12 @@ void Crotine::Task<T>::Awaiter::await_suspend(std::coroutine_handle<> handle) co
     {
         _promise.chainOnResolved([handle]() 
         {
-            handle.resume();
+            auto typed_handle = std::coroutine_handle<PromiseBase>::from_address(handle.address());
+            auto& base = static_cast<PromiseBase&>(typed_handle.promise());
+            base.get_execution_ctx().execute([handle]()
+            {
+                handle.resume();
+            });
         });
     }
 }
