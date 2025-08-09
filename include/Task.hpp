@@ -48,7 +48,7 @@ namespace Crotine
                 public:
                     bool await_ready() const noexcept;
                     void await_suspend(std::coroutine_handle<> handle) const;
-                    auto await_resume() -> const T&;
+                    auto await_resume();
             };
         using promise_type = Promise;
         using Handle = std::coroutine_handle<Promise>;
@@ -70,6 +70,84 @@ namespace Crotine
         public:
             auto operator co_await() -> Awaiter;
     };
+
+    template <>
+    class Task<void>::Promise : public PromiseBase
+    {
+        private:
+            std::promise<void> _promise;
+            std::future<void> _future;
+            std::forward_list<std::function<void()>> _continuations;
+        public:
+            auto get_return_object() -> Task<void>;
+            auto initial_suspend() -> std::suspend_always;
+            auto final_suspend() noexcept -> std::suspend_always;
+            void return_void();
+            void unhandled_exception();
+        public:
+            Promise();
+            ~Promise() = default;
+        public:
+            bool isResolved() const noexcept;
+            void Wait();
+        public:
+            void chainOnResolved(std::function<void()> continuation);
+    };
+}
+
+template <>
+Crotine::Task<void> Crotine::Task<void>::Promise::get_return_object()
+{
+    return Task<void>{Handle::from_promise(*this)};
+}
+
+template <>
+std::suspend_always Crotine::Task<void>::Promise::initial_suspend()
+{
+    return {};
+}
+
+template <>
+std::suspend_always Crotine::Task<void>::Promise::final_suspend() noexcept
+{
+    return {};
+}
+
+template <>
+bool Crotine::Task<void>::Promise::isResolved() const noexcept
+{
+    return _future.valid() && _future.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+}
+
+template <>
+void Crotine::Task<void>::Promise::Wait()
+{
+    _future.get();
+}
+
+template <>
+void Crotine::Task<void>::Promise::return_void()
+{
+    _promise.set_value();
+    for (auto& continuation : _continuations)
+    {
+        continuation();
+    }
+}
+
+template <>
+void Crotine::Task<void>::Promise::unhandled_exception()
+{
+    std::terminate();
+}
+
+template <>
+Crotine::Task<void>::Promise::Promise() : _future(_promise.get_future()) {}
+
+template <>
+void Crotine::Task<void>::Promise::chainOnResolved(std::function<void()> continuation)
+{
+    _continuations.emplace_front(std::move(continuation));
 }
 
 template <typename T>
@@ -207,9 +285,10 @@ void Crotine::Task<T>::Awaiter::await_suspend(std::coroutine_handle<> handle) co
 }
 
 template <typename T>
-const T& Crotine::Task<T>::Awaiter::await_resume()
+auto Crotine::Task<T>::Awaiter::await_resume()
 {
-    return _promise.getValue();
+    if constexpr(!std::is_void_v<T>)
+        return _promise.getValue();
 }
 
 template <typename T>
