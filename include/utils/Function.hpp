@@ -58,6 +58,7 @@ namespace Crotine
     auto RunTask(Executor& ctx, Function&& func, Args&&... args)
     {
         auto task = CreateTask(std::forward<Function>(func), std::forward<Args>(args)...);
+        task.set_execution_ctx(ctx);
         task.execute_async();
         return task;
     }
