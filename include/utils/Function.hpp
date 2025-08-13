@@ -30,28 +30,35 @@ namespace Crotine
     template<typename Function, typename... Args>
     concept NonCoroutineFunctionT = std::is_invocable_v<Function, Args...> && !CoroutineFunctionT<Function, Args...>;
 
-    template<typename F, typename... Args>
-    auto CreateTask(F&& func, Args&&... args) -> Task<std::invoke_result_t<F, Args...>>
-    {
-        co_return std::invoke(std::forward<F>(func), std::forward<Args>(args)...);
-    }
-
     template<typename Function, typename... Args>
     requires CoroutineFunctionT<Function, Args...>
-    auto RunTask(Function&& func , Args&&... args) -> std::invoke_result_t<Function, Args...>
+    auto CreateTask(Function&& func , Args&&... args) -> std::invoke_result_t<Function, Args...>
     {
-        auto task = std::invoke(std::forward<Function>(func), std::forward<Args>(args)...);
-        task.execute_async();
-        return task;
+        return std::invoke(std::forward<Function>(func), std::forward<Args>(args)...);
     }
 
     template<typename Function, typename... Args>
     requires NonCoroutineFunctionT<Function, Args...>
-    auto RunTask(Function&& func, Args&&... args) -> Task<std::invoke_result_t<Function, Args...>>
+    auto CreateTask(Function&& func, Args&&... args) -> Task<std::invoke_result_t<Function, Args...>>
+    {
+        co_return std::invoke(std::forward<Function>(func), std::forward<Args>(args)...);
+    }
+
+    template<typename Function, typename... Args>
+    requires CoroutineFunctionT<Function, Args...> || NonCoroutineFunctionT<Function, Args...>
+    auto RunTask(Function&& func, Args&&... args)
     {
         auto task = CreateTask(std::forward<Function>(func), std::forward<Args>(args)...);
         task.execute_async();
         return task;
     }
 
+    template<typename Function, typename... Args>
+    requires CoroutineFunctionT<Function, Args...> || NonCoroutineFunctionT<Function,Args...>
+    auto RunTask(Executor& ctx, Function&& func, Args&&... args)
+    {
+        auto task = CreateTask(std::forward<Function>(func), std::forward<Args>(args)...);
+        task.execute_async();
+        return task;
+    }
 }

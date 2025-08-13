@@ -1,4 +1,6 @@
 #include "../include/Task.hpp"
+#include "../include/Xecutor.hpp"
+#include "../include/TaskRunner.hpp"
 #include "../include/utils/Function.hpp"
 
 #include <iostream>
@@ -33,11 +35,15 @@ auto non_coro_param_task(int a, int b) -> int
 
 int main()
 {
-    auto tsk1 = Crotine::RunTask(coro_task);
-    auto tsk2 = Crotine::RunTask(non_coro_task);
+    Crotine::Xecutor executor;
+    Crotine::TaskRunner taskRunner(executor);
+
+
+    auto tsk1 = taskRunner.Run(coro_task);
+    auto tsk2 = taskRunner.Run(non_coro_task);
 
     auto tsk3 = Crotine::RunTask(coro_param_task, 10, 20);
-    auto tsk4 = Crotine::RunTask(non_coro_param_task, 30, 40);
+    auto tsk4 = Crotine::RunTask(executor , non_coro_param_task, 30, 40);
 
     std::cout << "Coroutine task result: " << tsk1.getPromise().getWaitedValue() << "\n";
     std::cout << "Non-coroutine task result: " << tsk2.getPromise().getWaitedValue() << "\n";
