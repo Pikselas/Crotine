@@ -7,8 +7,6 @@
 #include <coroutine>
 #include <forward_list>
 
-#include <iostream>
-
 #include "PromiseBase.hpp"
 
 namespace Crotine
