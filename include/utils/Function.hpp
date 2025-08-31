@@ -39,7 +39,7 @@ namespace Crotine
 
     template<typename Function, typename... Args>
     requires NonCoroutineFunctionT<Function, Args...>
-    inline auto CreateTask(Function&& func, Args&&... args) -> Task<std::invoke_result_t<Function, Args...>>
+    inline auto CreateTask(Function&& func, Args... args) -> Task<std::invoke_result_t<Function, Args...>>
     {
         co_return std::invoke(std::forward<Function>(func), std::forward<Args>(args)...);
     }
