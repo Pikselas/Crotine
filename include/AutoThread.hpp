@@ -5,57 +5,47 @@
 #include <functional>
 #include <condition_variable>
 
+#include "WaitGroup.hpp"
+#include "BlockChannel.hpp"
+
 namespace Crotine
 {
     class AutoThread
     {
-        private:
-            struct shared_thread_data
+        public:
+            struct thread_context
             {
-                bool signal_run;
-                std::function<void()> task;
-                std::condition_variable& notifier;
+                BlockChannel<std::function<void()>>& tasks;
+                std::chrono::milliseconds timeout;
                 std::function<void()> expire_callback;
-                
-                shared_thread_data(std::condition_variable& notifier) : signal_run(false) , notifier(notifier) {}
+                public:
+                    thread_context(BlockChannel<std::function<void()>>& task_channel , std::chrono::milliseconds timeout , std::function<void()> expire_callback)
+                        : tasks(task_channel) , timeout(timeout) , expire_callback(expire_callback) {}
             };
-        private:
-            std::shared_ptr<shared_thread_data> shared_data;
         public:
-            AutoThread(std::condition_variable& notifier , std::chrono::milliseconds timeout);
+            AutoThread(thread_context context);
             ~AutoThread() = default;
-        public:
-            void setTask(std::function<void()> task);
-            void setExpireCallback(std::function<void()> callback);
     };
 
-    AutoThread::AutoThread(std::condition_variable& notifier , std::chrono::milliseconds timeout) : shared_data(std::make_shared<shared_thread_data>(notifier))
+    AutoThread::AutoThread(thread_context context)
     {
-        std::thread([shared_data = shared_data , timeout]() mutable
+        std::thread([context]() mutable
         {
-            std::mutex mtx;
-            std::unique_lock<std::mutex> m_lock(mtx);
-            while(shared_data->notifier.wait_for(m_lock , timeout , [&](){  return shared_data->signal_run; }))
+            while(true)
             {
-                shared_data->signal_run = false;
-                shared_data->task();
-                
-                // reset task so that the function gets destroyed if necessary
-                // this is important if the task is a lambda function/functor and needs to free resources
-                shared_data->task = nullptr;
+                if(auto task = context.tasks.try_take_for(context.timeout); task)
+                {
+                    (*task)();
+                    // going out of scope will destroy the task
+                    // task destruction is necessary for some tasks
+                }
+                else
+                    break;
             }
-            shared_data->expire_callback();
+            if(context.expire_callback)
+            {
+                context.expire_callback();
+            }
         }).detach();
-    }
-
-    void AutoThread::setTask(std::function<void()> task)
-    {
-        shared_data->task = std::move(task);
-        shared_data->signal_run = true;
-    }
-
-    void AutoThread::setExpireCallback(std::function<void()> callback)
-    {
-        shared_data->expire_callback = callback;
     }
 }

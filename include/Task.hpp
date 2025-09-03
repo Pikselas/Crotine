@@ -345,6 +345,9 @@ inline Crotine::Task<T>::Awaiter Crotine::Task<T>::operator co_await()
 template <typename T>
 inline void Crotine::Task<T>::detach()
 {
-    getPromise().setFinalSuspensionAwaiter(Final_suspension_awaiter{std::suspend_never{}});
-    _handle = nullptr;
+    if(!getPromise().isResolved())
+    {
+        getPromise().setFinalSuspensionAwaiter(Final_suspension_awaiter{std::suspend_never{}});
+        _handle = nullptr;
+    }
 }

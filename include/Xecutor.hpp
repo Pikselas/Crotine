@@ -8,54 +8,50 @@ namespace Crotine
     class Xecutor : public Executor
     {
         private:
-            std::deque<AutoThread> threads;
+            std::atomic_uint _idle_threads = 0;
         private:
-            std::mutex mtx;
+            std::chrono::milliseconds _timeout;
         private:
-            std::condition_variable notifier;
+            WaitGroup _wait_group;
         private:
-            std::chrono::milliseconds timeout;
+            BlockChannel<std::function<void()>> _tasks;
+        private:
+            unsigned int _max_worker = 0;
         public:
             void execute(std::function<void()> func) override;
         public:
-            Xecutor(std::chrono::milliseconds timeout = std::chrono::milliseconds(5000));
-            ~Xecutor() = default;
+            Xecutor(unsigned int max_worker = std::thread::hardware_concurrency() , std::chrono::milliseconds timeout = std::chrono::milliseconds(5000));
+            ~Xecutor();
     };
 
-    Xecutor::Xecutor(std::chrono::milliseconds timeout) : timeout(timeout)  {}
+    Xecutor::Xecutor(unsigned int max_worker, std::chrono::milliseconds timeout) : _max_worker(max_worker) , _timeout(timeout) {}
+
+    Xecutor::~Xecutor()
+    {
+        _tasks.close();
+        _wait_group.wait();
+    }
 
     void Xecutor::execute(std::function<void()> func)
     {
-        std::lock_guard<std::mutex> lock_(mtx);
-        
-        // if there is no thread in the pool, create one
-        if(threads.empty())
+        // if there is no active thread, create one
+        if((_idle_threads.load() == 0) && (_wait_group.count() < _max_worker))
         {
-            threads.emplace_back(notifier , timeout);
-            threads.back().setExpireCallback([this]()
+            _idle_threads.fetch_add(1);
+            _wait_group.add(1);
+            AutoThread(AutoThread::thread_context{_tasks , _timeout , [this]()
             {
-                // if the thread is expired, remove it from the pool
-                // only the last thread in the pool can expire
-                std::lock_guard<std::mutex> lock(mtx);
-                threads.pop_back();
-            });
+                _idle_threads.fetch_sub(1);
+                _wait_group.done();
+            }});
         }
 
-        // get the first thread in the pool
-        AutoThread thread = threads.front();
-        threads.pop_front();
-
-        // set the given task along with a callback 
-        // to put the thread back to the pool
-        thread.setTask(std::move([func = std::move(func) , this , thread = std::move(thread)]() mutable
+        _tasks.put([_task = func , this]()
         {
-            func();
-            // the most recently used thread will be put to the front of the pool
-            // so that other threads can die if they are not used for a long time
-            std::lock_guard<std::mutex> lock(mtx);
-            threads.emplace_front(std::move(thread));
-        }));
-
-        notifier.notify_one();
+            _idle_threads.fetch_sub(1);
+            if(_task)
+                _task();
+            _idle_threads.fetch_add(1);
+        });
     }
 }
